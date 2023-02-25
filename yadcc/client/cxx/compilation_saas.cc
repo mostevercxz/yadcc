@@ -129,7 +129,8 @@ CompilationResult CompileOnPublicCloud(const CompilerArgs& args,
   LOG_TRACE("Preparing to submit compilation task.");
   auto task_id = SubmitCompilationTask(args, std::move(rewritten_source));
   if (!task_id) {
-    LOG_WARN("Failed to submit task to the cloud.");
+    LOG_ERROR("向 localhost:8334 提交编译任务失败");
+
     // TODO(luobogao): Why not retry a few times before giving up?
     return {-1};
   }
@@ -223,11 +224,11 @@ CompilationResult WaitForCompilationTask(const std::string& task_id,
     if (status == 503) {
       continue;
     } else if (status == 404) {
-      LOG_WARN("Our task is forgotten by delegate daemon.");
+      LOG_ERROR("向 localhost:8334 询问编译任务id={} 时返回404", task_id);
       return {-1};
     } else if (status != 200) {
-      LOG_ERROR("Unexpected HTTP status code [{}] from delegate daemon: {}",
-                status, body);
+      LOG_ERROR("向 localhost:8334 询问编译任务id={} 时http错误码={},body={}",
+                task_id, status, body);
       return {-1};
     }
 
@@ -238,7 +239,8 @@ CompilationResult WaitForCompilationTask(const std::string& task_id,
         !Json::Reader().parse(parsed->front().data(),
                               parsed->front().data() + parsed->front().size(),
                               jsv)) {
-      LOG_ERROR("Unexpected: Malformed response from delegate daemon.");
+      LOG_ERROR("向 localhost:8334 询问编译任务id={} 时,json解析失败={}",
+                task_id, body);
       return {-1};
     }
 

@@ -56,13 +56,23 @@ std::shared_ptr<void> TryAcquireTaskQuota(bool lightweight_task,
                                  [](auto) { ReleaseTaskQuota(); });
   } else if (status == 503) {
     // NOTHING.
-  } else if (status == -1) {  // HTTP request itself failed?
-    LOG_ERROR("Cannot contact delegate daemon. Daemon died?");
+  } else if (status ==
+             ERROR_FAILED_TO_CONNECT) {  // HTTP request itself failed?
+    LOG_ERROR("连接 localhost:8334 失败,请检查daemon进程是否启动");
     std::this_thread::sleep_for(1s);
     // TODO(luobogao): Start delegate daemon automatically.
+  } else if (status == ERROR_FAILED_TO_WRITE) {
+    LOG_ERROR("10s内向 localhost:8334 发送http请求失败");
+    std::this_thread::sleep_for(1s);
+  } else if (status == ERROR_FAILED_TO_READ) {
+    LOG_ERROR("10s内从 localhost:8334 接收http请求失败");
+    std::this_thread::sleep_for(1s);
+  } else if (status == ERROR_MALFORMED_DATA) {
+    LOG_ERROR("从 localhost:8334 接收到错误格式的json");
+    std::this_thread::sleep_for(1s);
   } else {
-    LOG_ERROR("Unexpected HTTP status code [{}] from delegate daemon: {}",
-              status, body);
+    LOG_ERROR("localhost:8334 找不到可用的编译核,HTTP返回码={},请求={},回复={}",
+              status, body, resp_body);
     std::this_thread::sleep_for(1s);
   }
 

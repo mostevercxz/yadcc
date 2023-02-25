@@ -112,6 +112,44 @@ void WriteCompilationResults(
   }
 }
 
+void PrintLoad() {
+  std::string req_body = "";
+  auto&& [status, body] = DaemonCall(
+      "http://username:password@10.10.111.47:8336/inspect/vars/yadcc", {},
+      req_body, 15s /* Must be greater than `milliseconds_to_wait` */);
+  if (status != 200) {
+    return;
+  }
+
+  Json::Value jsv;
+  if (!Json::Reader().parse(body, jsv)) {
+    return;
+  }
+
+  std::string output = "集群总负载:\n";
+  auto&& task_dispatcher = jsv["task_dispatcher"];
+  output += task_dispatcher["capacity_available"].asString();
+  output += "/";
+  output += task_dispatcher["capacity"].asString();
+  output += "\n";
+
+  // Print load info
+  output += "各机器负载:\n";
+  for (int i = 0; i != task_dispatcher["servants"].size(); ++i) {
+    auto&& one_servant = task_dispatcher["servants"][i];
+    auto splitted = flare::Split(one_servant["location"].asString(), ":");
+    output += splitted[0];
+    output += ",";
+    output += "负载/最大贡献核数:";
+    output += one_servant["current_load"].asString();
+    output += "/";
+    output += one_servant["max_tasks"].asString();
+    output += ",\n";
+  }
+
+  LOG_ERROR("{}", output);
+}
+
 // TODO(luobogao): If a sufficiently small number of files to be compiled, we
 // can just run them locally (if they miss the cache). Compiling files locally
 // (if possible) leads to more consistent time usage.
@@ -152,8 +190,7 @@ int Entry(int argc, const char** argv) {
   // Bail out quickly if the task can't be done on the cloud.
   if (!IsCompilerInvocationDistributable(args)) {
     if (GetOptionWarnOnNonDistributable()) {
-      LOG_WARN("Invoked with non-distributable arguments, running locally: {}",
-               args.Rebuild());
+      LOG_ERROR("该编译选项不能进行联合编译，本地编译: {}", args.Rebuild());
     }
     return passthrough_acquiring_quota();
   }
@@ -161,8 +198,7 @@ int Entry(int argc, const char** argv) {
   // Preprocess the source file then.
   auto rewritten = RewriteFile(args);
   if (!rewritten) {
-    LOG_INFO("Failed to rewrite source file, running locally: {}",
-             args.Rebuild());
+    LOG_ERROR("预处理cpp文件失败，在本机排队等CPU编译{}", args.Rebuild());
     return passthrough_acquiring_quota();
   }
 
@@ -202,8 +238,8 @@ int Entry(int argc, const char** argv) {
     // "real" compilation error.
     if (ec < 0 || ec == 127 /* Failed to start compiler at remote side. */) {
       if (auto quota = TryAcquireTaskQuota(false, 10s)) {
-        LOG_INFO(
-            "Failed on the cloud with [{}]. Failing back to local machine.",
+        LOG_ERROR(
+            "10s内,向 localhost:8334 要不到用来编译的CPU核心,本地编译,ret={}",
             ec);
         // Local machine is free, failback to local compilation.
         return passthrough(quota);

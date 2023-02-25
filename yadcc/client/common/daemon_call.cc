@@ -63,7 +63,10 @@ std::pair<const char*, std::size_t> WritePostHeader(
     const std::string& path, const std::vector<std::string>& headers,
     std::size_t body_size, std::array<char, kMaxHeaderSize>* stack_buffer,
     std::unique_ptr<char[]>* dyn_buffer) {
-  constexpr auto kStartLinePrefix = "POST "sv;
+  auto kStartLinePrefix = "POST "sv;
+  if (path.rfind("http://", 0) == 0) {
+    kStartLinePrefix = "GET "sv;
+  }
   constexpr auto kStartLinePostfix = " HTTP/1.1"sv;
   constexpr auto kLineDelimiter = "\r\n"sv;
 
