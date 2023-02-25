@@ -202,7 +202,7 @@ template <class Request, class Task>
 void HttpServiceImpl::WaitForTaskGeneric(const flare::HttpRequest& request,
                                          flare::HttpResponse* response,
                                          flare::HttpServerContext* context) {
-  constexpr auto kMaximumWaitableTime = 10s;
+  constexpr auto kMaximumWaitableTime = 60s;
 
   auto req_msg = TryParseJsonAsMessage<Request>(*request.body());
   if (!req_msg) {
