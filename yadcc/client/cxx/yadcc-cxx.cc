@@ -237,7 +237,7 @@ int Entry(int argc, const char** argv) {
     // Most likely an error related to our compilation cloud, instead of a
     // "real" compilation error.
     if (ec < 0 || ec == 127 /* Failed to start compiler at remote side. */) {
-      if (auto quota = TryAcquireTaskQuota(false, 10s)) {
+      if (auto quota = TryAcquireTaskQuota(false, 20s)) {
         LOG_ERROR(
             "10s内,向 localhost:8334 要不到用来编译的CPU核心,本地编译,ret={}",
             ec);

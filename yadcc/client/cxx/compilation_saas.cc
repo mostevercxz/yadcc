@@ -171,7 +171,7 @@ std::optional<std::string> SubmitCompilationTask(
 
   auto result = DaemonCallGathered("/local/submit_cxx_task",
                                    {"Content-Type: application/x-multi-chunk"},
-                                   parts, 5s);
+                                   parts, 15s);
 
   if (result.status == 400) {
     LOG_TRACE(
@@ -191,7 +191,7 @@ std::optional<std::string> SubmitCompilationTask(
     // Try again.
     result = DaemonCallGathered("/local/submit_cxx_task",
                                 {"Content-Type: application/x-multi-chunk"},
-                                parts, 5s);
+                                parts, 10s);
   }
   auto&& [status, body] = result;
   if (status != 200) {
@@ -217,10 +217,10 @@ CompilationResult WaitForCompilationTask(const std::string& task_id,
                                          const CompilerArgs& args) {
   do {
     auto req_body = fmt::format(
-        "{{\"task_id\": \"{}\", \"milliseconds_to_wait\": 10000}}", task_id);
+        "{{\"task_id\": \"{}\", \"milliseconds_to_wait\": 20000}}", task_id);
     auto&& [status, body] = DaemonCall(
         "/local/wait_for_cxx_task", {"Content-Type: application/json"},
-        req_body, 15s /* Must be greater than `milliseconds_to_wait` */);
+        req_body, 25s /* Must be greater than `milliseconds_to_wait` */);
     if (status == 503) {
       continue;
     } else if (status == 404) {
