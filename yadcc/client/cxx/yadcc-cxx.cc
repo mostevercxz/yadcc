@@ -239,16 +239,19 @@ int Entry(int argc, const char** argv) {
     if (ec < 0 || ec == 127 /* Failed to start compiler at remote side. */) {
       if (auto quota = TryAcquireTaskQuota(false, 20s)) {
         LOG_ERROR(
-            "10s内,向 localhost:8334 要不到用来编译的CPU核心,本地编译,ret={}",
+            "20s内,向 localhost:8334 要不到用来编译的CPU核心,本地编译,ret={}",
             ec);
         // Local machine is free, failback to local compilation.
+        PrintLoad();
         return passthrough(quota);
       }
 
       // Local machine is busy then, if we haven't run out of retry budget yet,
       // try submitting this task to the compilation cloud again.
       if (retries_left--) {
-        LOG_TRACE("Failed on the cloud with [{}], retrying.", ec);
+        LOG_TRACE("{} 拿不到核用来编译,继续等待中...剩余重试次数:{}", ec,
+                  retries_left);
+        PrintLoad();
 
         // `rewritten` was `move`d away when we call `CompileOnCloud`,
         // regenerate it.
@@ -264,13 +267,10 @@ int Entry(int argc, const char** argv) {
       LOG_DEBUG("Failed on the cloud with (stderr): {}", err);
       if (ec == 1) {  // Most likely an error raised by GCC (source code itself
                       // is broken?). We don't print an error in this case.
-        LOG_TRACE(
-            "The compilation failed on the cloud with error [{}], retrying "
-            "locally: {}",
-            ec, args.Rebuild());
+        LOG_TRACE("云端编译失败,错误={}, 本地重试下面命令: {}", ec,
+                  args.Rebuild());
       } else {
-        LOG_WARN("Unexpected exit code #{}. Retrying the compilation locally.",
-                 ec);
+        LOG_WARN("云端编译错误码={}. 本地编译", ec);
       }
       return passthrough_acquiring_quota();
     }
