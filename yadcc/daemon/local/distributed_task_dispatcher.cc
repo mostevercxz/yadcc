@@ -241,12 +241,13 @@ bool DistributedTaskDispatcher::TryReadCacheIfAllowed(TaskDesc* task) {
   if (cache_entry) {  // Our lucky day.
     auto&& files = TryParseFiles(cache_entry->files);
     if (files) {
-      task->output =
-          DistributedTaskOutput{.exit_code = 0,
-                                .standard_output = cache_entry->standard_output,
-                                .standard_error = cache_entry->standard_error,
-                                .extra_info = cache_entry->extra_info,
-                                .output_files = std::move(*files)};
+      task->output = DistributedTaskOutput{
+          .exit_code = 0,
+          .standard_output =
+              std::string_view("缓存命中,") + cache_entry->standard_output,
+          .standard_error = cache_entry->standard_error,
+          .extra_info = cache_entry->extra_info,
+          .output_files = std::move(*files)};
       return true;
     }
   }
