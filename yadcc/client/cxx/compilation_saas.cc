@@ -191,18 +191,28 @@ std::optional<std::string> SubmitCompilationTask(
     // Try again.
     result = DaemonCallGathered("/local/submit_cxx_task",
                                 {"Content-Type: application/x-multi-chunk"},
-                                parts, 10s);
+                                parts, 18s);
   }
   auto&& [status, body] = result;
-  if (status != 200) {
-    LOG_ERROR("Local daemon rejected our submission: [{}] {}", status, body);
+  if (status == ERROR_FAILED_TO_CONNECT) {  // HTTP request itself failed?
+    LOG_ERROR("连接 localhost:8334 失败,请检查daemon进程是否启动,{}", body);
+    return {};
+    // TODO(luobogao): Start delegate daemon automatically.
+  } else if (status == ERROR_FAILED_TO_WRITE) {
+    LOG_ERROR("18s内向 localhost:8334 发送http请求失败,{}", body);
+    return {};
+  } else if (status == ERROR_FAILED_TO_READ) {
+    LOG_ERROR("18s内从 localhost:8334 接收http请求失败,{}", body);
+    return {};
+  } else if (status == ERROR_MALFORMED_DATA) {
+    LOG_ERROR("18s内从 localhost:8334 接收到错误格式的json,{}", body);
     return {};
   }
 
   // Wait until the compilation completes.
   Json::Value jsv;
   if (!Json::Reader().parse(body, jsv)) {
-    LOG_ERROR("Unexpected: Invalid response from delegate daemon.");
+    LOG_ERROR("解析json失败,从 localhost:8334 返回的json可能已损坏,{}", body);
     return {};
   }
   return jsv["task_id"].asString();
